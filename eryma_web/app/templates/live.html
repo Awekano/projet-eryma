@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}PyVision - Live{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Live</h1>
+  <p class="muted">
+    Flux caméra IP en direct via RTSP, converti côté serveur pour affichage web.
+  </p>
+
+  <div style="margin-top:16px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.28);">
+    <img
+      src="{{ url_for('main.live_feed') }}"
+      alt="Flux caméra en direct"
+      style="display:block; width:100%; height:auto; aspect-ratio:16/9; object-fit:contain; background:#000;"
+    >
+  </div>
+
+  <p class="muted" style="margin-top:12px;">
+    Si rien ne s'affiche, vérifie l'URL RTSP, les identifiants caméra, le VLAN et l'accès du serveur Linux à la caméra.
+  </p>
+</div>
+{% endblock %}

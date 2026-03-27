@@ -1,0 +1,15 @@
+[2026-02-24 14:55:01 +0100] [2897] [INFO] Starting gunicorn 25.1.0
+[2026-02-24 14:55:01 +0100] [2897] [INFO] Listening at: http://127.0.0.1:8000 (2897)
+[2026-02-24 14:55:01 +0100] [2897] [INFO] Using worker: sync
+[2026-02-24 14:55:01 +0100] [2897] [INFO] Control socket listening at /home/enzo/eryma_web/gunicorn.ctl
+[2026-02-24 14:55:01 +0100] [2913] [INFO] Booting worker with pid: 2913
+[2026-02-24 14:55:01 +0100] [2915] [INFO] Booting worker with pid: 2915
+[2026-02-24 14:55:01 +0100] [2916] [INFO] Booting worker with pid: 2916
+[2026-02-24 14:55:12 +0100] [2897] [INFO] Handling signal: term
+[2026-02-24 14:55:12 +0100] [2915] [INFO] Worker exiting (pid: 2915)
+[2026-02-24 14:55:12 +0100] [2913] [INFO] Worker exiting (pid: 2913)
+[2026-02-24 14:55:12 +0100] [2916] [INFO] Worker exiting (pid: 2916)
+[2026-02-24 14:55:12 +0100] [2897] [INFO] Worker (pid:2913) was sent SIGTERM!
+[2026-02-24 14:55:12 +0100] [2897] [INFO] Worker (pid:2915) was sent SIGTERM!
+[2026-02-24 14:55:12 +0100] [2897] [INFO] Worker (pid:2916) was sent SIGTERM!
+[2026-02-24 14:55:12 +0100] [2897] [INFO] Shutting down: Master
