@@ -2,7 +2,9 @@ import mimetypes
 import os
 import time
 from datetime import datetime
-
+from pathlib import Path
+from flask import jsonify
+from werkzeug.utils import secure_filename
 import cv2
 from flask import (
     Blueprint,
@@ -22,7 +24,7 @@ from .services.audit import audit
 main_bp = Blueprint("main", __name__)
 
 VIDEO_EXT = {".mp4", ".mkv", ".webm", ".avi", ".mov"}
-INLINE_VIDEO_EXT = {".mp4", ".webm", ".mov"}
+INLINE_VIDEO_EXT = {".mp4",".mkv",".webm", ".mov"}
 
 
 @main_bp.get("/")
@@ -231,3 +233,32 @@ def _error_frame(text: str) -> bytes:
     )
     ok, buffer = cv2.imencode(".jpg", frame)
     return buffer.tobytes() if ok else b""
+@main_bp.post("/upload_webcam_recording")
+@login_required
+def upload_webcam_recording():
+    file = request.files.get("video")
+    if not file:
+        return jsonify({"error": "Aucun fichier reçu"}), 400
+
+    original_name = secure_filename(file.filename or "")
+    ext = Path(original_name).suffix.lower()
+
+    allowed_ext = {".webm", ".mp4"}
+    if ext not in allowed_ext:
+        return jsonify({"error": f"Extension non autorisée : {ext}"}), 400
+
+    recordings_dir = _recordings_dir()
+    os.makedirs(recordings_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"motion_demo_{current_user.username}_{timestamp}{ext}"
+    save_path = os.path.join(recordings_dir, filename)
+
+    file.save(save_path)
+
+    audit("upload_webcam_recording", username=current_user.username, extra={"file": filename})
+
+    return jsonify({
+        "message": "Vidéo enregistrée",
+        "filename": filename
+    }), 201
