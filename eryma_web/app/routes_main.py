@@ -3,28 +3,30 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from flask import jsonify
-from werkzeug.utils import secure_filename
+
 import cv2
 from flask import (
     Blueprint,
     Response,
     abort,
     current_app,
+    jsonify,
     render_template,
     request,
     send_file,
     stream_with_context,
 )
 from flask_login import current_user, login_required
+from werkzeug.utils import secure_filename
 
+from . import db
 from .models import Event
 from .services.audit import audit
 
 main_bp = Blueprint("main", __name__)
 
 VIDEO_EXT = {".mp4", ".mkv", ".webm", ".avi", ".mov"}
-INLINE_VIDEO_EXT = {".mp4",".mkv",".webm", ".mov"}
+INLINE_VIDEO_EXT = {".mp4", ".mkv", ".webm", ".mov"}
 
 
 @main_bp.get("/")
@@ -38,10 +40,13 @@ def index():
 def events():
     kind = request.args.get("kind")
     q = Event.query.order_by(Event.created_at.desc())
-    if kind in ("detection", "alarme"):
+
+    if kind in ("detection", "alarme", "video_recorded"):
         q = q.filter_by(kind=kind)
+
     rows = q.limit(200).all()
     audit("view_events", username=current_user.username)
+
     return render_template("events.html", events=rows, kind=kind)
 
 
@@ -75,11 +80,26 @@ def live_feed():
 @login_required
 def download(event_id: int):
     ev = Event.query.get_or_404(event_id)
-    if not ev.video_path or not os.path.exists(ev.video_path):
-        abort(404)
-    audit(f"download_video:{event_id}", username=current_user.username)
-    return send_file(ev.video_path, as_attachment=True)
 
+    if not ev.video_path:
+        abort(404)
+
+    base_dir = _recordings_dir()
+
+    # Accepte un chemin absolu ancien format ou un chemin relatif nouveau format
+    if os.path.isabs(ev.video_path):
+        abs_path = os.path.abspath(ev.video_path)
+    else:
+        abs_path = os.path.abspath(os.path.join(base_dir, ev.video_path))
+
+    if not abs_path.startswith(base_dir + os.sep):
+        abort(403)
+
+    if not os.path.isfile(abs_path):
+        abort(404)
+
+    audit(f"download_video:{event_id}", username=current_user.username)
+    return send_file(abs_path, as_attachment=True, conditional=True)
 
 
 def _recordings_dir() -> str:
@@ -93,7 +113,11 @@ def recordings():
     rows = []
 
     if not os.path.isdir(base_dir):
-        audit("view_recordings_folder_missing", username=current_user.username, extra={"dir": base_dir})
+        audit(
+            "view_recordings_folder_missing",
+            username=current_user.username,
+            extra={"dir": base_dir},
+        )
         return render_template(
             "recordings.html",
             rows=[],
@@ -126,7 +150,11 @@ def recordings():
             )
 
     rows.sort(key=lambda r: r["dt"], reverse=True)
-    audit("view_recordings_folder", username=current_user.username, extra={"count": len(rows)})
+    audit(
+        "view_recordings_folder",
+        username=current_user.username,
+        extra={"count": len(rows)},
+    )
     return render_template("recordings.html", rows=rows, error=None)
 
 
@@ -138,6 +166,7 @@ def recordings_view(rel_path: str):
 
     if not abs_path.startswith(base_dir + os.sep):
         abort(403)
+
     if not os.path.isfile(abs_path):
         abort(404)
 
@@ -145,7 +174,12 @@ def recordings_view(rel_path: str):
     guessed_mime = mimetypes.guess_type(abs_path)[0] or "application/octet-stream"
     inline = ext in INLINE_VIDEO_EXT
 
-    audit("view_recording_file", username=current_user.username, extra={"file": rel_path})
+    audit(
+        "view_recording_file",
+        username=current_user.username,
+        extra={"file": rel_path},
+    )
+
     return send_file(
         abs_path,
         mimetype=guessed_mime,
@@ -165,12 +199,16 @@ def recordings_download(rel_path: str):
 
     if not abs_path.startswith(base_dir + os.sep):
         abort(403)
+
     if not os.path.isfile(abs_path):
         abort(404)
 
-    audit("download_recording_file", username=current_user.username, extra={"file": rel_path})
+    audit(
+        "download_recording_file",
+        username=current_user.username,
+        extra={"file": rel_path},
+    )
     return send_file(abs_path, as_attachment=True, conditional=True)
-
 
 
 def _mjpeg_stream(rtsp_url: str):
@@ -210,11 +248,12 @@ def _mjpeg_stream(rtsp_url: str):
 
             yield (
                 b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + buffer.tobytes()
+                + b"\r\n"
             )
     finally:
         cap.release()
-
 
 
 def _error_frame(text: str) -> bytes:
@@ -233,6 +272,8 @@ def _error_frame(text: str) -> bytes:
     )
     ok, buffer = cv2.imencode(".jpg", frame)
     return buffer.tobytes() if ok else b""
+
+
 @main_bp.post("/upload_webcam_recording")
 @login_required
 def upload_webcam_recording():
@@ -242,40 +283,41 @@ def upload_webcam_recording():
 
     original_name = secure_filename(file.filename or "")
     ext = Path(original_name).suffix.lower()
-
     allowed_ext = {".webm", ".mp4"}
+
     if ext not in allowed_ext:
         return jsonify({"error": f"Extension non autorisée : {ext}"}), 400
 
     recordings_dir = _recordings_dir()
     os.makedirs(recordings_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%d-%m-%Y_%Hh%Mmin%S")
-    filename = f"video_{current_user.username}_{timestamp}{ext}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"motion_demo_{current_user.username}_{timestamp}{ext}"
     save_path = os.path.join(recordings_dir, filename)
 
     file.save(save_path)
 
-    audit("upload_webcam_recording", username=current_user.username, extra={"file": filename})
-    from app.services.events import create_event
+    # On stocke le chemin relatif pour rester cohérent avec /recordings/view/<path:rel_path>
+    rel_path = filename
 
-create_event(
-    kind="video_recorded",
-    video_path=video_filepath,
-    screenshot_path=screenshot_filepath
-)
-    return jsonify({
-        "message": "Vidéo enregistrée",
-        "filename": filename
-    }), 201
-from flask_login import login_required, current_user
-from .models import AuditLog
+    event = Event(
+        kind="video_recorded",
+        video_path=rel_path,
+        screenshot_path=None,
+    )
+    db.session.add(event)
+    db.session.commit()
 
-@main_bp.get("/audit-logs")
-@login_required
-def audit_logs():
-    if current_user.role != "admin":
-        abort(403)
+    audit(
+        "upload_webcam_recording",
+        username=current_user.username,
+        extra={"file": filename, "event_id": event.id},
+    )
 
-    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(200).all()
-    return render_template("audit_logs.html", logs=logs)
+    return jsonify(
+        {
+            "message": "Vidéo enregistrée",
+            "filename": filename,
+            "event_id": event.id,
+        }
+    ), 201

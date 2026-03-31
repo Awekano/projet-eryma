@@ -3,56 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <title>Évènements</title>
+
     <style>
         body {
-            font-family: Arial;
-            background: #111;
+            font-family: Arial, sans-serif;
+            background-color: #111;
             color: #eee;
             padding: 20px;
         }
 
         h1 {
             text-align: center;
+            margin-bottom: 25px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            background-color: #1a1a1a;
         }
 
         th, td {
-            padding: 10px;
-            border-bottom: 1px solid #444;
+            padding: 12px;
+            border-bottom: 1px solid #333;
             text-align: center;
         }
 
         th {
-            background: #222;
+            background-color: #222;
         }
 
         tr:hover {
-            background: #1c1c1c;
+            background-color: #1f1f1f;
         }
 
         a {
-            color: #00bcd4;
+            color: #4fc3f7;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
         }
 
         .badge {
             padding: 5px 10px;
-            border-radius: 5px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            font-weight: bold;
         }
 
         .detection {
-            background: orange;
+            background-color: orange;
+            color: #111;
+        }
+
+        .alarme {
+            background-color: red;
+            color: white;
         }
 
         .video {
-            background: green;
+            background-color: green;
+            color: white;
+        }
+
+        .empty {
+            text-align: center;
+            color: #888;
+            padding: 20px;
+        }
+
+        img {
+            border-radius: 5px;
         }
     </style>
 </head>
+
 <body>
 
 <h1>📋 Journal des évènements</h1>
@@ -66,14 +93,21 @@
             <th>Capture</th>
         </tr>
     </thead>
+
     <tbody>
         {% for event in events %}
         <tr>
-            <td>{{ event.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+            <!-- DATE -->
+            <td>
+                {{ event.created_at.strftime('%d/%m/%Y %H:%M:%S') }}
+            </td>
 
+            <!-- TYPE -->
             <td>
                 {% if event.kind == "detection" %}
                     <span class="badge detection">Détection</span>
+                {% elif event.kind == "alarme" %}
+                    <span class="badge alarme">Alarme</span>
                 {% elif event.kind == "video_recorded" %}
                     <span class="badge video">Vidéo</span>
                 {% else %}
@@ -81,9 +115,10 @@
                 {% endif %}
             </td>
 
+            <!-- VIDEO -->
             <td>
                 {% if event.video_path %}
-                    <a href="{{ url_for('main.view_recording', rel_path=event.video_path) }}">
+                    <a href="{{ url_for('main.recordings_view', rel_path=event.video_path) }}">
                         ▶ Voir
                     </a>
                 {% else %}
@@ -91,12 +126,21 @@
                 {% endif %}
             </td>
 
+            <!-- SCREENSHOT -->
             <td>
                 {% if event.screenshot_path %}
-                    <img src="{{ event.screenshot_path }}" width="120">
+                    <img src="{{ event.screenshot_path }}" width="120" alt="capture">
                 {% else %}
                     -
                 {% endif %}
+            </td>
+        </tr>
+
+        {% else %}
+        <!-- SI AUCUN EVENEMENT -->
+        <tr>
+            <td colspan="4" class="empty">
+                Aucun évènement enregistré.
             </td>
         </tr>
         {% endfor %}
