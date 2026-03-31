@@ -192,18 +192,17 @@
       };
 
       mediaRecorder.onstop = async () => {
-        try {
-          const finalType = mediaRecorder.mimeType || "video/webm";
-          const blob = new Blob(recordedChunks, { type: finalType });
-          const ext = finalType.includes("mp4") ? "mp4" : "webm";
-
-          liveStatus.textContent = "Envoi de la vidéo au serveur...";
-          const result = await uploadRecordedBlob(blob, ext);
-          liveStatus.textContent = `Vidéo enregistrée : ${result.filename}`;
-        } catch (err) {
-          console.error(err);
-          liveStatus.textContent = "Échec de l'envoi au serveur.";
-        } finally {
+         try {
+  const result = await uploadRecordedBlob(blob, ext);
+  console.log("Upload OK :", result);
+  liveStatus.textContent = result.message
+    ? `${result.message} : ${result.filename || ""}`
+    : `Vidéo enregistrée : ${result.filename || ""}`;
+} catch (err) {
+  console.error("Erreur upload :", err);
+  liveStatus.textContent = `Échec de l'envoi au serveur : ${err.message || err}`;
+}
+	  finally {
           isRecording = false;
 
           setTimeout(() => {

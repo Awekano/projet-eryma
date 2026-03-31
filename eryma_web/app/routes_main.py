@@ -20,7 +20,7 @@ from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
 from . import db
-from .models import Event
+from .models import Event, AuditLog
 from .services.audit import audit
 
 main_bp = Blueprint("main", __name__)
@@ -48,6 +48,17 @@ def events():
     audit("view_events", username=current_user.username)
 
     return render_template("events.html", events=rows, kind=kind)
+
+
+@main_bp.get("/audit")
+@login_required
+def audit_logs():
+    if getattr(current_user, "role", None) != "admin":
+        abort(403)
+
+    rows = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(200).all()
+    audit("view_audit", username=current_user.username)
+    return render_template("audit.html", logs=rows)
 
 
 @main_bp.get("/live")
@@ -86,7 +97,6 @@ def download(event_id: int):
 
     base_dir = _recordings_dir()
 
-    # Accepte un chemin absolu ancien format ou un chemin relatif nouveau format
     if os.path.isabs(ev.video_path):
         abs_path = os.path.abspath(ev.video_path)
     else:
@@ -297,7 +307,6 @@ def upload_webcam_recording():
 
     file.save(save_path)
 
-    # On stocke le chemin relatif pour rester cohérent avec /recordings/view/<path:rel_path>
     rel_path = filename
 
     event = Event(
@@ -308,11 +317,14 @@ def upload_webcam_recording():
     db.session.add(event)
     db.session.commit()
 
-    audit(
-        "upload_webcam_recording",
-        username=current_user.username,
-        extra={"file": filename, "event_id": event.id},
-    )
+    try:
+        audit(
+            "upload_webcam_recording",
+            username=current_user.username,
+            extra={"file": filename, "event_id": event.id},
+        )
+    except Exception as e:
+        current_app.logger.error(f"Erreur audit upload_webcam_recording: {e}")
 
     return jsonify(
         {
