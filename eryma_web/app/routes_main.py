@@ -250,15 +250,32 @@ def upload_webcam_recording():
     recordings_dir = _recordings_dir()
     os.makedirs(recordings_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"motion_demo_{current_user.username}_{timestamp}{ext}"
+    timestamp = datetime.now().strftime("%d-%m-%Y_%Hh%Mmin%S")
+    filename = f"video_{current_user.username}_{timestamp}{ext}"
     save_path = os.path.join(recordings_dir, filename)
 
     file.save(save_path)
 
     audit("upload_webcam_recording", username=current_user.username, extra={"file": filename})
+    from app.services.events import create_event
 
+create_event(
+    kind="video_recorded",
+    video_path=video_filepath,
+    screenshot_path=screenshot_filepath
+)
     return jsonify({
         "message": "Vidéo enregistrée",
         "filename": filename
     }), 201
+from flask_login import login_required, current_user
+from .models import AuditLog
+
+@main_bp.get("/audit-logs")
+@login_required
+def audit_logs():
+    if current_user.role != "admin":
+        abort(403)
+
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(200).all()
+    return render_template("audit_logs.html", logs=logs)

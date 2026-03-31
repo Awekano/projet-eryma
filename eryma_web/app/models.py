@@ -18,8 +18,9 @@ class User(UserMixin, db.Model):
 
 class Event(db.Model):
     __tablename__ = "events"
+
     id = db.Column(db.Integer, primary_key=True)
-    kind = db.Column(db.String(30), nullable=False)  # "detection", "alarme"
+    kind = db.Column(db.String(30), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     screenshot_path = db.Column(db.String(255), nullable=True)
     video_path = db.Column(db.String(255), nullable=True)
