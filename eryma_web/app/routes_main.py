@@ -47,7 +47,7 @@ def events():
     rows = q.limit(200).all()
     audit("view_events", username=current_user.username)
 
-    return render_template("events.html", events=events)
+    return render_template("events.html", events=rows, selected_kind=kind)
 
 
 @main_bp.get("/audit")
@@ -58,7 +58,7 @@ def audit_logs():
 
     rows = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(200).all()
     audit("view_audit", username=current_user.username)
-    return render_template("audit.html", audits=audits)
+    return render_template("audit.html", audits=rows)
 
 
 @main_bp.get("/live")
