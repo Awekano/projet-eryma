@@ -343,19 +343,30 @@ def upload_webcam_recording():
 @main_bp.post("/events/delete/<int:event_id>")
 @login_required
 def delete_event(event_id):
-    event = Event.query.get_or_404(event_id)
+    try:
+        event = Event.query.get_or_404(event_id)
 
-    # supprimer fichier vidéo si existe
-    if event.video_path:
-        import os
-        path = os.path.join(current_app.config["RECORDINGS_FOLDER"], event.video_path)
-        if os.path.exists(path):
-            os.remove(path)
+        # supprimer fichier vidéo si existe
+        if event.video_path:
+            base_dir = _recordings_dir()
+            abs_path = os.path.abspath(os.path.join(base_dir, event.video_path))
 
-    # supprimer en base
-    db.session.delete(event)
-    db.session.commit()
+            if abs_path.startswith(base_dir + os.sep) and os.path.exists(abs_path):
+                os.remove(abs_path)
 
-    audit("delete_event", username=current_user.username)
+        # supprimer en base
+        db.session.delete(event)
+        db.session.commit()
 
-    return redirect(url_for("main.events"))
+        # audit sécurisé (ne doit jamais casser)
+        try:
+            audit("delete_event", username=current_user.username)
+        except Exception as audit_error:
+            current_app.logger.error(f"Erreur audit delete_event: {audit_error}")
+
+        return redirect(url_for("main.events"))
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception("Erreur delete_event")
+        return f"Erreur suppression : {e}", 500

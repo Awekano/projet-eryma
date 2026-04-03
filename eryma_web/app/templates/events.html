@@ -1,168 +1,80 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Évènements</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #111;
-            color: #eee;
-            padding: 20px;
-        }
+{% extends "base.html" %}
 
-        h1 {
-            text-align: center;
-            margin-bottom: 25px;
-        }
+{% block title %}Évènements{% endblock %}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: #1a1a1a;
-        }
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Journal des évènements</h1>
 
-        th, td {
-            padding: 12px;
-            border-bottom: 1px solid #333;
-            text-align: center;
-        }
+    <div class="mb-3">
+        <a class="btn btn-outline-light btn-sm" href="{{ url_for('main.events') }}">Tous</a>
+        <a class="btn btn-outline-warning btn-sm" href="{{ url_for('main.events', kind='detection') }}">Détection</a>
+        <a class="btn btn-outline-danger btn-sm" href="{{ url_for('main.events', kind='alarme') }}">Alarme</a>
+        <a class="btn btn-outline-success btn-sm" href="{{ url_for('main.events', kind='video_recorded') }}">Vidéos</a>
+    </div>
 
-        th {
-            background-color: #222;
-        }
+    <div class="table-responsive">
+        <table class="table table-dark table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Date / Heure</th>
+                    <th>Type</th>
+                    <th>Vidéo</th>
+                    <th>Capture</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td>{{ event.created_at.strftime('%d/%m/%Y %H:%M:%S') if event.created_at else '-' }}</td>
 
-        tr:hover {
-            background-color: #1f1f1f;
-        }
+                    <td>
+                        {% if event.kind == "detection" %}
+                            <span class="badge bg-warning text-dark">Détection</span>
+                        {% elif event.kind == "alarme" %}
+                            <span class="badge bg-danger">Alarme</span>
+                        {% elif event.kind == "video_recorded" %}
+                            <span class="badge bg-success">Vidéo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ event.kind or '-' }}</span>
+                        {% endif %}
+                    </td>
 
-        a {
-            color: #4fc3f7;
-            text-decoration: none;
-        }
+                    <td>
+                        {% if event.video_path %}
+                            <a class="btn btn-sm btn-outline-info"
+                               href="{{ url_for('main.recordings_view', rel_path=event.video_path) }}">
+                                Voir
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
 
-        a:hover {
-            text-decoration: underline;
-        }
+                    <td>
+                        {% if event.screenshot_path %}
+                            <img src="{{ event.screenshot_path }}" alt="capture" style="max-width:120px;" class="img-thumbnail">
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
 
-        .badge {
-            padding: 5px 10px;
-            border-radius: 6px;
-            font-size: 0.9em;
-            font-weight: bold;
-            display: inline-block;
-        }
-
-        .detection {
-            background-color: orange;
-            color: #111;
-        }
-
-        .alarme {
-            background-color: red;
-            color: white;
-        }
-
-        .video {
-            background-color: green;
-            color: white;
-        }
-
-        .empty {
-            text-align: center;
-            color: #888;
-            padding: 20px;
-        }
-
-        img {
-            border-radius: 5px;
-            max-width: 120px;
-            height: auto;
-        }
-
-        button {
-            background: #c62828;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #e53935;
-        }
-    </style>
-</head>
-<body>
-
-    <h1>📋 Journal des évènements</h1>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Date / Heure</th>
-                <th>Type</th>
-                <th>Vidéo</th>
-                <th>Capture</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for event in events %}
-            <tr>
-                <td>
-                    {{ event.created_at.strftime('%d/%m/%Y %H:%M:%S') if event.created_at else '-' }}
-                </td>
-
-                <td>
-                    {% if event.kind == "detection" %}
-                        <span class="badge detection">Détection</span>
-                    {% elif event.kind == "alarme" %}
-                        <span class="badge alarme">Alarme</span>
-                    {% elif event.kind == "video_recorded" %}
-                        <span class="badge video">Vidéo</span>
-                    {% else %}
-                        {{ event.kind or '-' }}
-                    {% endif %}
-                </td>
-
-                <td>
-                    {% if event.video_path %}
-                        <a href="{{ url_for('main.recordings_view', rel_path=event.video_path) }}">
-                            ▶ Voir
-                        </a>
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-
-                <td>
-                    {% if event.screenshot_path %}
-                        <img src="{{ event.screenshot_path }}" alt="capture">
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-
-                <td>
-                    <form method="POST"
-                          action="{{ url_for('main.delete_event', event_id=event.id) }}"
-                          onsubmit="return confirm('Supprimer cet évènement ?');">
-                        <button type="submit">Supprimer</button>
-                    </form>
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="empty">
-                    Aucun évènement enregistré.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-</body>
-</html>
+                    <td>
+                        <form method="POST"
+                              action="{{ url_for('main.delete_event', event_id=event.id) }}"
+                              onsubmit="return confirm('Supprimer cet évènement ?');">
+                            <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">Aucun évènement enregistré.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
