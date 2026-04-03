@@ -154,23 +154,32 @@
     }, 250);
   }
 
-  async function uploadRecordedBlob(blob, ext) {
-    const formData = new FormData();
-    formData.append("video", blob, `motion_demo_${Date.now()}.${ext}`);
-
-    const response = await fetch("/upload_webcam_recording", {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Erreur d'upload");
-    }
-
-    return data;
+  async function uploadRecordedBlob(videoBlob, ext) {
+  if (!videoBlob) {
+    throw new Error("Blob vidéo introuvable");
   }
+
+  const formData = new FormData();
+  formData.append("video", videoBlob, `motion_demo_${Date.now()}.${ext}`);
+
+  const response = await fetch("/upload_webcam_recording", {
+    method: "POST",
+    body: formData
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (e) {
+    throw new Error("Réponse JSON invalide du serveur");
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "Erreur d'upload");
+  }
+
+  return data;
+}	
 
   function startAutoRecording() {
     if (!mediaStream || isRecording) return;
@@ -192,25 +201,34 @@
       };
 
       mediaRecorder.onstop = async () => {
-         try {
-  const result = await uploadRecordedBlob(blob, ext);
-  console.log("Upload OK :", result);
-  liveStatus.textContent = result.message
-    ? `${result.message} : ${result.filename || ""}`
-    : `Vidéo enregistrée : ${result.filename || ""}`;
-} catch (err) {
-  console.error("Erreur upload :", err);
-  liveStatus.textContent = `Échec de l'envoi au serveur : ${err.message || err}`;
-}
-	  finally {
-          isRecording = false;
+  try {
+    if (!recordedChunks || recordedChunks.length === 0) {
+      throw new Error("Aucune donnée vidéo enregistrée");
+    }
 
-          setTimeout(() => {
-            motionCooldown = false;
-            liveStatus.textContent = "Mode démo actif : surveillance de mouvement";
-          }, 3000);
-        }
-      };
+    const finalType = mediaRecorder.mimeType || "video/webm";
+    const ext = finalType.includes("mp4") ? "mp4" : "webm";
+    const videoBlob = new Blob(recordedChunks, { type: finalType });
+
+    liveStatus.textContent = "Envoi de la vidéo au serveur...";
+    const result = await uploadRecordedBlob(videoBlob, ext);
+
+    console.log("Upload OK :", result);
+    liveStatus.textContent = result.message
+      ? `${result.message} : ${result.filename || ""}`
+      : `Vidéo enregistrée : ${result.filename || ""}`;
+  } catch (err) {
+    console.error("Erreur upload :", err);
+    liveStatus.textContent = `Échec de l'envoi au serveur : ${err.message || err}`;
+  } finally {
+    isRecording = false;
+
+    setTimeout(() => {
+      motionCooldown = false;
+      liveStatus.textContent = "Mode démo actif : surveillance de mouvement";
+    }, 3000);
+  }
+};
 
       mediaRecorder.start();
 
