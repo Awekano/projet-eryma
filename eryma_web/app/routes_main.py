@@ -287,49 +287,55 @@ def _error_frame(text: str) -> bytes:
 @main_bp.post("/upload_webcam_recording")
 @login_required
 def upload_webcam_recording():
-    file = request.files.get("video")
-    if not file:
-        return jsonify({"error": "Aucun fichier reçu"}), 400
-
-    original_name = secure_filename(file.filename or "")
-    ext = Path(original_name).suffix.lower()
-    allowed_ext = {".webm", ".mp4"}
-
-    if ext not in allowed_ext:
-        return jsonify({"error": f"Extension non autorisée : {ext}"}), 400
-
-    recordings_dir = _recordings_dir()
-    os.makedirs(recordings_dir, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"motion_demo_{current_user.username}_{timestamp}{ext}"
-    save_path = os.path.join(recordings_dir, filename)
-
-    file.save(save_path)
-
-    rel_path = filename
-
-    event = Event(
-        kind="video_recorded",
-        video_path=rel_path,
-        screenshot_path=None,
-    )
-    db.session.add(event)
-    db.session.commit()
-
     try:
-        audit(
-            "upload_webcam_recording",
-            username=current_user.username,
-            extra={"file": filename, "event_id": event.id},
-        )
-    except Exception as e:
-        current_app.logger.error(f"Erreur audit upload_webcam_recording: {e}")
+        file = request.files.get("video")
+        if not file:
+            return jsonify({"error": "Aucun fichier reçu"}), 400
 
-    return jsonify(
-        {
-            "message": "Vidéo enregistrée",
-            "filename": filename,
-            "event_id": event.id,
-        }
-    ), 201
+        original_name = secure_filename(file.filename or "")
+        ext = Path(original_name).suffix.lower()
+        allowed_ext = {".webm", ".mp4"}
+
+        if ext not in allowed_ext:
+            return jsonify({"error": f"Extension non autorisée : {ext}"}), 400
+
+        recordings_dir = _recordings_dir()
+        os.makedirs(recordings_dir, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"motion_demo_{current_user.username}_{timestamp}{ext}"
+        save_path = os.path.join(recordings_dir, filename)
+
+        file.save(save_path)
+
+        rel_path = filename
+
+        event = Event(
+            kind="video_recorded",
+            video_path=rel_path,
+            screenshot_path=None,
+        )
+        db.session.add(event)
+        db.session.commit()
+
+        try:
+            audit(
+                "upload_webcam_recording",
+                username=current_user.username,
+                extra={"file": filename, "event_id": event.id},
+            )
+        except Exception as audit_error:
+            current_app.logger.error(f"Erreur audit upload_webcam_recording: {audit_error}")
+
+        return jsonify(
+            {
+                "message": "Vidéo enregistrée",
+                "filename": filename,
+                "event_id": event.id,
+            }
+        ), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception("Erreur upload_webcam_recording")
+        return jsonify({"error": str(e)}), 500
