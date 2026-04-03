@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-
+from flask import redirect, url_for
 import cv2
 from flask import (
     Blueprint,
@@ -339,3 +339,23 @@ def upload_webcam_recording():
         db.session.rollback()
         current_app.logger.exception("Erreur upload_webcam_recording")
         return jsonify({"error": str(e)}), 500
+
+@main_bp.post("/events/delete/<int:event_id>")
+@login_required
+def delete_event(event_id):
+    event = Event.query.get_or_404(event_id)
+
+    # supprimer fichier vidéo si existe
+    if event.video_path:
+        import os
+        path = os.path.join(current_app.config["RECORDINGS_FOLDER"], event.video_path)
+        if os.path.exists(path):
+            os.remove(path)
+
+    # supprimer en base
+    db.session.delete(event)
+    db.session.commit()
+
+    audit("delete_event", username=current_user.username)
+
+    return redirect(url_for("main.events"))

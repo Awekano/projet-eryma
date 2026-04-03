@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Évènements</title>
-
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -51,6 +50,7 @@
             border-radius: 6px;
             font-size: 0.9em;
             font-weight: bold;
+            display: inline-block;
         }
 
         .detection {
@@ -76,76 +76,93 @@
 
         img {
             border-radius: 5px;
+            max-width: 120px;
+            height: auto;
+        }
+
+        button {
+            background: #c62828;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #e53935;
         }
     </style>
 </head>
-
 <body>
 
-<h1>📋 Journal des évènements</h1>
+    <h1>📋 Journal des évènements</h1>
 
-<table>
-    <thead>
-        <tr>
-            <th>Date / Heure</th>
-            <th>Type</th>
-            <th>Vidéo</th>
-            <th>Capture</th>
-        </tr>
-    </thead>
+    <table>
+        <thead>
+            <tr>
+                <th>Date / Heure</th>
+                <th>Type</th>
+                <th>Vidéo</th>
+                <th>Capture</th>
+                <th>Action</th>
+            </tr>
+        </thead>
 
-    <tbody>
-        {% for event in events %}
-        <tr>
-            <!-- DATE -->
-            <td>
-                {{ event.created_at.strftime('%d/%m/%Y %H:%M:%S') }}
-            </td>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td>
+                    {{ event.created_at.strftime('%d/%m/%Y %H:%M:%S') if event.created_at else '-' }}
+                </td>
 
-            <!-- TYPE -->
-            <td>
-                {% if event.kind == "detection" %}
-                    <span class="badge detection">Détection</span>
-                {% elif event.kind == "alarme" %}
-                    <span class="badge alarme">Alarme</span>
-                {% elif event.kind == "video_recorded" %}
-                    <span class="badge video">Vidéo</span>
-                {% else %}
-                    {{ event.kind }}
-                {% endif %}
-            </td>
+                <td>
+                    {% if event.kind == "detection" %}
+                        <span class="badge detection">Détection</span>
+                    {% elif event.kind == "alarme" %}
+                        <span class="badge alarme">Alarme</span>
+                    {% elif event.kind == "video_recorded" %}
+                        <span class="badge video">Vidéo</span>
+                    {% else %}
+                        {{ event.kind or '-' }}
+                    {% endif %}
+                </td>
 
-            <!-- VIDEO -->
-            <td>
-                {% if event.video_path %}
-                    <a href="{{ url_for('main.recordings_view', rel_path=event.video_path) }}">
-                        ▶ Voir
-                    </a>
-                {% else %}
-                    -
-                {% endif %}
-            </td>
+                <td>
+                    {% if event.video_path %}
+                        <a href="{{ url_for('main.recordings_view', rel_path=event.video_path) }}">
+                            ▶ Voir
+                        </a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
 
-            <!-- SCREENSHOT -->
-            <td>
-                {% if event.screenshot_path %}
-                    <img src="{{ event.screenshot_path }}" width="120" alt="capture">
-                {% else %}
-                    -
-                {% endif %}
-            </td>
-        </tr>
+                <td>
+                    {% if event.screenshot_path %}
+                        <img src="{{ event.screenshot_path }}" alt="capture">
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
 
-        {% else %}
-        <!-- SI AUCUN EVENEMENT -->
-        <tr>
-            <td colspan="4" class="empty">
-                Aucun évènement enregistré.
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                <td>
+                    <form method="POST"
+                          action="{{ url_for('main.delete_event', event_id=event.id) }}"
+                          onsubmit="return confirm('Supprimer cet évènement ?');">
+                        <button type="submit">Supprimer</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="empty">
+                    Aucun évènement enregistré.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
 </body>
 </html>
