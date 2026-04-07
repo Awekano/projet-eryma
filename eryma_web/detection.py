@@ -1,4 +1,6 @@
 from mailer import send_alert_email
+from app.services.events import add_event
+
 video_name = "motion_demo_admin_20260329_164103.webm"
 
 add_event(
