@@ -22,6 +22,7 @@ from werkzeug.utils import secure_filename
 from . import db
 from .models import Event, AuditLog
 from .services.audit import audit
+from mailer import send_alert_email
 
 main_bp = Blueprint("main", __name__)
 
@@ -319,6 +320,11 @@ def upload_webcam_recording():
         db.session.commit()
 
         try:
+            send_alert_email(rel_path, "video_recorded")
+        except Exception as e:
+            current_app.logger.error(f"Erreur envoi mail : {e}")
+
+        try:
             audit(
                 "upload_webcam_recording",
                 username=current_user.username,
@@ -339,6 +345,7 @@ def upload_webcam_recording():
         db.session.rollback()
         current_app.logger.exception("Erreur upload_webcam_recording")
         return jsonify({"error": str(e)}), 500
+
 
 @main_bp.post("/events/delete/<int:event_id>")
 @login_required
